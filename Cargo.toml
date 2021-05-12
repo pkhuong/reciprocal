@@ -1,0 +1,12 @@
+[package]
+name = "reciprocal"
+version = "0.1.0"
+authors = ["Paul Khuong <pvk@pvk.ca>"]
+description = "Baseline implementation of integer division by constants"
+edition = "2018"
+license = "MIT"
+repository = "https://github.com/pkhuong/reciprocal"
+keywords = ["division", "div-by-mul", "precomputation"]
+categories = ["algorithms", "caching"]
+
+[dependencies]
