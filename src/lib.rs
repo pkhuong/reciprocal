@@ -180,12 +180,12 @@ impl Reciprocal {
         // recover branch-freedom if we could convince llvm to emit
         // conditional moves for something like
         //
-        // let offset = if wrapped { self.u64_max_result } else { 0 }
-        // let hi = ...;
-        // (hi >> self.base.shift) + offset
+        //     let fixup = if wrapped { self.u64_max_result } else { 0 }
+        //     let hi = ...;
+        //     (hi >> self.base.shift) + fixup
         //
         // The sequence above works because when the addition wraps,
-        // `shifted =` 0`, so `hi == 0`.
+        // `shifted == 0`, so `hi == 0`.
         if wrapped {
             // `self.base.increment <= 1`, so the addition can only
             // wrap if `x == u64::MAX`, and we already have the result
