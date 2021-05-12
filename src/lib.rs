@@ -237,6 +237,7 @@ mod tests {
     fn test_small_divisors() {
         for d in 0..256 {
             check(d);
+            check(u64::MAX - d);
         }
     }
 
@@ -244,8 +245,10 @@ mod tests {
     fn test_near_powers_of_two() {
         for p in 0..64 {
             let po2 = 1u64 << p;
-            check(po2.wrapping_sub(1));
-            check(po2.wrapping_add(1));
+            for i in 1..=8 {
+                check(po2.wrapping_sub(i));
+                check(po2.wrapping_add(i));
+            }
         }
     }
 
@@ -254,8 +257,18 @@ mod tests {
         for p in 0..64 {
             let po2 = 1u64 << p;
             let delta = po2 / 2;
-            check(po2.wrapping_sub(delta));
-            check(po2.wrapping_add(delta));
+
+            let x = po2.wrapping_sub(delta / 4);
+            let y = po2.wrapping_add(delta);
+
+            check(x);
+            check(y);
+            for i in 1..=8 {
+                check(x.wrapping_sub(i));
+                check(x.wrapping_add(i));
+                check(y.wrapping_sub(i));
+                check(y.wrapping_add(i));
+            }
         }
     }
 
