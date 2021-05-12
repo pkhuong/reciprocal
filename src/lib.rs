@@ -242,6 +242,19 @@ mod tests {
     }
 
     #[test]
+    fn test_sparse_divisors() {
+        for i in 0..64 {
+            for j in i..64 {
+                let d = (1u64 << i) | (1u64 << j);
+
+                check(d);
+                // Also check the bitwise complement (dense divisors).
+                check(!d);
+            }
+        }
+    }
+
+    #[test]
     fn test_near_powers_of_two() {
         for p in 0..64 {
             let po2 = 1u64 << p;
