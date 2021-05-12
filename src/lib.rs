@@ -85,6 +85,11 @@ impl Reciprocal {
 
 impl PartialReciprocal {
     pub fn new(d: u64) -> Option<PartialReciprocal> {
+        // Division by `d \in {1, u64::MAX}` are special because
+        // `u64::MAX / d` differs from `(u64::MAX - 1) / d`,
+        // and can't be computed by an increment-less sequence.
+        //
+        // We must give up on those... and 0, obviously.
         if d <= 1 || d == u64::MAX {
             return None;
         }
