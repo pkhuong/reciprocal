@@ -23,67 +23,17 @@ pub struct Reciprocal {
     u64_max_result: u64,
 }
 
-impl Reciprocal {
-    pub fn new(d: u64) -> Option<Reciprocal> {
-        if d == 0 {
-            return None;
-        }
-
-        let u64_max_result = u64::MAX / d;
-        if let Some(base) = PartialReciprocal::new(d) {
-            return Some(Reciprocal {
-                base,
-                u64_max_result,
-            });
-        }
-
-        // The two special cases below set `base` correctly for any `x
-        // < u64::MAX`, and all set `increment = 1`.
-        //
-        // We can thus determine whether to use `u64_max_result` by
-        // checking if the increment overflows.
-        assert!(d == 1 || d == u64::MAX);
-        if d == 1 {
-            // We can spoof the identity by adding 1 and scaling
-            // by u64::MAX / 2**64.
-            return Some(Reciprocal {
-                base: PartialReciprocal {
-                    multiplier: u64::MAX,
-                    shift: 0,
-                    increment: 1,
-                },
-                u64_max_result,
-            });
-        }
-
-        // And we can fake a division by u64::MAX with
-        // a multiplication by zero.
-        Some(Reciprocal {
-            base: PartialReciprocal {
-                multiplier: 0,
-                shift: 0,
-                increment: 1,
-            },
-            u64_max_result,
-        })
-    }
-
-    /// Computes `x / d`, where `d` is the divison for which this
-    /// reciprocal was constructed.
-    #[inline]
-    #[must_use]
-    pub fn apply(self, x: u64) -> u64 {
-        let (shifted, wrapped) = x.overflowing_add(self.base.increment as u64);
-        if wrapped {
-            return self.u64_max_result;
-        }
-
-        let hi = ((self.base.multiplier as u128 * shifted as u128) >> 64) as u64;
-        hi >> self.base.shift
-    }
-}
-
 impl PartialReciprocal {
+    /// Constructs a `PartialReciprocal` that computes a floored
+    /// division by `d`.
+    ///
+    /// Returns `None` if `d == 0`, or if `d == 1 || d == u64::MAX`:
+    /// these last two divisors cannot be safely implemented as
+    /// `PartialReciprocal` (the sequence would fail for `u64::MAX /
+    /// 1` and `u64::MAX / u64::MAX`).
+    ///
+    /// The full `Reciprocal` handles these last two cases, at the
+    /// expense of one more `u64` field and a branch.
     pub fn new(d: u64) -> Option<PartialReciprocal> {
         // Division by `d \in {1, u64::MAX}` are special because
         // `u64::MAX / d` differs from `(u64::MAX - 1) / d`,
@@ -168,6 +118,83 @@ impl PartialReciprocal {
         let hi = ((self.multiplier as u128 * shifted as u128) >> 64) as u64;
 
         hi >> self.shift
+    }
+}
+
+impl Reciprocal {
+    /// Constructs a `Reciprocal` that computes a floored division by `d`.
+    ///
+    /// Returns None if `d == 0`.
+    pub fn new(d: u64) -> Option<Reciprocal> {
+        if d == 0 {
+            return None;
+        }
+
+        let u64_max_result = u64::MAX / d;
+        if let Some(base) = PartialReciprocal::new(d) {
+            return Some(Reciprocal {
+                base,
+                u64_max_result,
+            });
+        }
+
+        // The two special cases below set `base` correctly for any `x
+        // < u64::MAX`, and all set `increment = 1`.
+        //
+        // We can thus determine whether to use `u64_max_result` by
+        // checking if the increment overflows.
+        assert!(d == 1 || d == u64::MAX);
+        if d == 1 {
+            // We can spoof the identity by adding 1 and scaling
+            // by u64::MAX / 2**64.
+            return Some(Reciprocal {
+                base: PartialReciprocal {
+                    multiplier: u64::MAX,
+                    shift: 0,
+                    increment: 1,
+                },
+                u64_max_result,
+            });
+        }
+
+        // And we can fake a division by u64::MAX with
+        // a multiplication by zero.
+        Some(Reciprocal {
+            base: PartialReciprocal {
+                multiplier: 0,
+                shift: 0,
+                increment: 1,
+            },
+            u64_max_result,
+        })
+    }
+
+    /// Computes `x / d`, where `d` is the divison for which this
+    /// reciprocal was constructed.
+    #[inline]
+    #[must_use]
+    pub fn apply(self, x: u64) -> u64 {
+        let (shifted, wrapped) = x.overflowing_add(self.base.increment as u64);
+
+        // This condition would ideally be `unlikely`.  We could also
+        // recover branch-freedom if we could convince llvm to emit
+        // conditional moves for something like
+        //
+        // let offset = if wrapped { self.u64_max_result } else { 0 }
+        // let hi = ...;
+        // (hi >> self.base.shift) + offset
+        //
+        // The sequence above works because when the addition wraps,
+        // `shifted =` 0`, so `hi == 0`.
+        if wrapped {
+            // `self.base.increment <= 1`, so the addition can only
+            // wrap if `x == u64::MAX`, and we already have the result
+            // for that division.
+            return self.u64_max_result;
+        }
+
+        let hi = ((self.base.multiplier as u128 * shifted as u128) >> 64) as u64;
+        hi >> self.base.shift
     }
 }
 
