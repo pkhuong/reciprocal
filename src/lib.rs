@@ -72,7 +72,7 @@ impl Reciprocal {
     /// reciprocal was constructed.
     #[inline]
     #[must_use]
-    pub fn apply(&self, x: u64) -> u64 {
+    pub fn apply(self, x: u64) -> u64 {
         let (shifted, wrapped) = x.overflowing_add(self.base.increment as u64);
         if wrapped {
             return self.u64_max_result;
@@ -158,7 +158,7 @@ impl PartialReciprocal {
     /// reciprocal was constructed.
     #[inline]
     #[must_use]
-    pub fn apply(&self, x: u64) -> u64 {
+    pub fn apply(self, x: u64) -> u64 {
         let shifted = x.saturating_add(self.increment as u64);
         let hi = ((self.multiplier as u128 * shifted as u128) >> 64) as u64;
 
