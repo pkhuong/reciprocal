@@ -245,9 +245,10 @@ mod tests {
             // A symmetrical range around `center`
             probe(center.wrapping_add(i));
             probe(center.wrapping_sub(i));
-            // And a last symmetrical range around `center + d`.
-            probe(center.wrapping_add(d).wrapping_add(i));
-            probe(center.wrapping_add(d).wrapping_sub(i));
+
+            // And a last symmetrical range around `u64::MAX - d`.
+            probe(u64::MAX.wrapping_sub(d).wrapping_add(i));
+            probe(u64::MAX.wrapping_sub(d).wrapping_sub(i));
         }
     }
 
