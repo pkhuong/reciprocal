@@ -201,17 +201,17 @@ mod tests {
             probe(u64::MAX - i);
 
             // Probe a symmetrical range around `d`
-            probe(d.saturating_add(i));
-            probe(d.saturating_sub(i));
+            probe(d.wrapping_add(i));
+            probe(d.wrapping_sub(i));
             // Another symmetrical range around `center - d`.
-            probe(center.saturating_sub(d).saturating_add(i));
-            probe(center.saturating_sub(d).saturating_sub(i));
+            probe(center.wrapping_sub(d).wrapping_add(i));
+            probe(center.wrapping_sub(d).wrapping_sub(i));
             // A symmetrical range around `center`
-            probe(center.saturating_add(i));
-            probe(center.saturating_sub(i));
+            probe(center.wrapping_add(i));
+            probe(center.wrapping_sub(i));
             // And a last symmetrical range around `center + d`.
-            probe(center.saturating_add(d).saturating_add(i));
-            probe(center.saturating_add(d).saturating_sub(i));
+            probe(center.wrapping_add(d).wrapping_add(i));
+            probe(center.wrapping_add(d).wrapping_sub(i));
         }
     }
 
@@ -240,8 +240,8 @@ mod tests {
     fn test_near_powers_of_two() {
         for p in 0..64 {
             let po2 = 1u64 << p;
-            check(po2.saturating_sub(1));
-            check(po2.saturating_add(1));
+            check(po2.wrapping_sub(1));
+            check(po2.wrapping_add(1));
         }
     }
 
@@ -250,8 +250,8 @@ mod tests {
         for p in 0..64 {
             let po2 = 1u64 << p;
             let delta = po2 / 2;
-            check(po2.saturating_sub(delta));
-            check(po2.saturating_add(delta));
+            check(po2.wrapping_sub(delta));
+            check(po2.wrapping_add(delta));
         }
     }
 
