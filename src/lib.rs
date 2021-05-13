@@ -19,8 +19,8 @@ pub struct PartialReciprocal {
 /// hardcoded result for `u64::MAX / d`.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Reciprocal {
-    base: PartialReciprocal,
     u64_max_result: u64,
+    base: PartialReciprocal,
 }
 
 impl PartialReciprocal {
@@ -133,8 +133,8 @@ impl Reciprocal {
         let u64_max_result = u64::MAX / d;
         if let Some(base) = PartialReciprocal::new(d) {
             return Some(Reciprocal {
-                base,
                 u64_max_result,
+                base,
             });
         }
 
@@ -148,24 +148,24 @@ impl Reciprocal {
             // We can spoof the identity by adding 1 and scaling
             // by u64::MAX / 2**64.
             return Some(Reciprocal {
+                u64_max_result,
                 base: PartialReciprocal {
                     multiplier: u64::MAX,
                     shift: 0,
                     increment: 1,
                 },
-                u64_max_result,
             });
         }
 
         // And we can fake a division by u64::MAX with
         // a multiplication by zero.
         Some(Reciprocal {
+            u64_max_result,
             base: PartialReciprocal {
                 multiplier: 0,
                 shift: 0,
                 increment: 1,
             },
-            u64_max_result,
         })
     }
 
