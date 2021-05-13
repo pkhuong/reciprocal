@@ -173,7 +173,7 @@ impl Reciprocal {
     /// reciprocal was constructed.
     #[inline]
     #[must_use]
-    pub fn apply(self, x: u64) -> u64 {
+    pub fn apply(&self, x: u64) -> u64 {
         let (shifted, wrapped) = x.overflowing_add(self.base.increment as u64);
 
         // This condition would ideally be `unlikely`.  We could also
