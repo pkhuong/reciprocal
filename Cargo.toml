@@ -9,6 +9,10 @@ repository = "https://github.com/pkhuong/reciprocal"
 keywords = ["division", "div-by-mul", "precomputation"]
 categories = ["algorithms", "caching"]
 
+[features]
+# Enable core::intrinsics::unlikely with the nightly feature.
+nightly = []
+
 [profile.bench]
 opt-level = 3
 

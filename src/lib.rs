@@ -1,3 +1,14 @@
+#![cfg_attr(feature = "nightly", feature(core_intrinsics))]
+
+#[cfg(feature = "nightly")]
+use core::intrinsics::unlikely;
+
+#[cfg(not(feature = "nightly"))]
+#[inline(always)]
+fn unlikely(x: bool) -> bool {
+    x
+}
+
 /// A `PartialReciprocal` represents an integer (floored) division
 /// by a `u64` that's not 0, 1 or u64::MAX.
 ///
@@ -176,9 +187,9 @@ impl Reciprocal {
     pub fn apply(&self, x: u64) -> u64 {
         let (shifted, wrapped) = x.overflowing_add(self.base.increment as u64);
 
-        // This condition would ideally be `unlikely`.  We could also
-        // recover branch-freedom if we could convince llvm to emit
-        // conditional moves for something like
+        // This could be branch-free (and likely lower latency than
+        // `PartialReciprocal::apply` if we figured how to coax llvm
+        // into emitting a conditional move for something like
         //
         //     let fixup = if wrapped { self.u64_max_result } else { 0 }
         //     let hi = ...;
@@ -186,7 +197,7 @@ impl Reciprocal {
         //
         // The sequence above works because when the addition wraps,
         // `shifted == 0`, so `hi == 0`.
-        if wrapped {
+        if unlikely(wrapped) {
             // `self.base.increment <= 1`, so the addition can only
             // wrap if `x == u64::MAX`, and we already have the result
             // for that division.
