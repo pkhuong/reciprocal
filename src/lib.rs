@@ -221,6 +221,14 @@ impl Reciprocal {
         // It would be nice to shave one instruction and have a
         // fused `cmovcc reg, mem`, but llvm is very reluctant to
         // unconditionalise memory loads, at least on x86-64.
+        //
+        // This branch-free formulation is equivalent to the branchy
+        // `apply`.  When the addition doesn't wrap, fixup is 0, and
+        // this function is equivalent to `apply`.  When the addition
+        // does wrap, `self.base.increment` must be 1 (it's always 0
+        // or 1), and so `x == u64::MAX`, and `shifted == 0`.  This
+        // leads to `hi == 0`, and adding `fixup == self.u64_max_result`
+        // to 0 yields `self.u64_max_result`.
         if !wrapped {
             fixup = 0;
         }
