@@ -9,4 +9,22 @@ repository = "https://github.com/pkhuong/reciprocal"
 keywords = ["division", "div-by-mul", "precomputation"]
 categories = ["algorithms", "caching"]
 
+[profile.bench]
+opt-level = 3
+
 [dependencies]
+
+[dev-dependencies]
+criterion = { version = "0.3", features = ["html_reports"] }
+strength_reduce = "0.2.3"
+fastdivide = "0.3.0"
+rand = "0.8"
+rand_chacha = "0.3"
+
+[[bench]]
+name = "div_throughput"
+harness = false
+
+[[bench]]
+name = "div_throughput_variable"
+harness = false
