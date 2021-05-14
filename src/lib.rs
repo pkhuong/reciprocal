@@ -1,4 +1,4 @@
-#![cfg_attr(feature = "nightly", feature(core_intrinsics))]
+#![cfg_attr(feature = "nightly", feature(core_intrinsics), feature(asm))]
 
 #[cfg(feature = "nightly")]
 use core::intrinsics::unlikely;
@@ -6,6 +6,15 @@ use core::intrinsics::unlikely;
 #[cfg(not(feature = "nightly"))]
 #[inline(always)]
 fn unlikely(x: bool) -> bool {
+    x
+}
+
+#[cfg(feature = "nightly")]
+#[inline(always)]
+fn opaque_identity(mut x: u64) -> u64 {
+    unsafe {
+        asm!("/* {0} */", inout(reg) x, options(nomem, nostack, pure));
+    }
     x
 }
 
@@ -187,16 +196,6 @@ impl Reciprocal {
     pub fn apply(&self, x: u64) -> u64 {
         let (shifted, wrapped) = x.overflowing_add(self.base.increment as u64);
 
-        // This could be branch-free (and likely lower latency than
-        // `PartialReciprocal::apply` if we figured how to coax llvm
-        // into emitting a conditional move for something like
-        //
-        //     let fixup = if wrapped { self.u64_max_result } else { 0 }
-        //     let hi = ...;
-        //     (hi >> self.base.shift) + fixup
-        //
-        // The sequence above works because when the addition wraps,
-        // `shifted == 0`, so `hi == 0`.
         if unlikely(wrapped) {
             // `self.base.increment <= 1`, so the addition can only
             // wrap if `x == u64::MAX`, and we already have the result
@@ -206,6 +205,28 @@ impl Reciprocal {
 
         let hi = ((self.base.multiplier as u128 * shifted as u128) >> 64) as u64;
         hi >> self.base.shift
+    }
+
+    #[cfg(feature = "nightly")]
+    #[inline]
+    #[must_use]
+    pub fn apply_branchfree(&self, x: u64) -> u64 {
+        let mut fixup = opaque_identity(self.u64_max_result);
+        let (shifted, wrapped) = x.overflowing_add(self.base.increment as u64);
+
+        // Combined with the opaque_identity above to force the eager
+        // loading of `fixup = self.u64_max_result` in a register,
+        // this seems to reliably convince llvm to emit a cmov.
+        //
+        // It would be nice to shave one instruction and have a
+        // fused `cmovcc reg, mem`, but llvm is very reluctant to
+        // unconditionalise memory loads, at least on x86-64.
+        if !wrapped {
+            fixup = 0;
+        }
+
+        let hi = ((self.base.multiplier as u128 * shifted as u128) >> 64) as u64;
+        (hi >> self.base.shift) + fixup
     }
 }
 
@@ -225,6 +246,9 @@ mod tests {
 
             if let Some(r) = recip {
                 assert_eq!(r.apply(x), expected, "d={}, x={}", d, x);
+
+                #[cfg(feature = "nightly")]
+                assert_eq!(r.apply_branchfree(x), expected, "d={}, x={}", d, x);
             }
         };
 
