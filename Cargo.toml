@@ -30,5 +30,9 @@ name = "div_throughput"
 harness = false
 
 [[bench]]
+name = "div_latency"
+harness = false
+
+[[bench]]
 name = "div_throughput_variable"
 harness = false
