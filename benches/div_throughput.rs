@@ -41,17 +41,35 @@ fn compiled_u64_div<const D: u64>(c: &mut Criterion) {
     });
 }
 
-fn reciprocal_u64_div<const D: u64>(c: &mut Criterion) {
+fn reciprocal_sat_u64_div<const D: u64>(c: &mut Criterion) {
     use reciprocal::PartialReciprocal;
 
     let d = black_box(PartialReciprocal::new(D).unwrap());
     let inputs: Vec<u64> = (0..ITER).map(generate).collect();
 
-    c.bench_function(&format!("reciprocal_u64_div_by_{}", D), move |b| {
+    c.bench_function(&format!("reciprocal_sat_u64_div_by_{}", D), move |b| {
         b.iter(|| {
             let mut sum = 0;
             for i in black_box(&inputs) {
-                sum += d.apply(*i);
+                sum += d.apply_saturating(*i);
+            }
+
+            black_box(sum)
+        })
+    });
+}
+
+fn reciprocal_of_u64_div<const D: u64>(c: &mut Criterion) {
+    use reciprocal::PartialReciprocal;
+
+    let d = black_box(PartialReciprocal::new(D).unwrap());
+    let inputs: Vec<u64> = (0..ITER).map(generate).collect();
+
+    c.bench_function(&format!("reciprocal_of_u64_div_by_{}", D), move |b| {
+        b.iter(|| {
+            let mut sum = 0;
+            for i in black_box(&inputs) {
+                sum += d.apply_overflowing(*i);
             }
 
             black_box(sum)
@@ -101,7 +119,8 @@ macro_rules! u64_div {
             $name,
             hardware_u64_div<{ $div }>,
             compiled_u64_div<{ $div }>,
-            reciprocal_u64_div<{ $div }>,
+            reciprocal_sat_u64_div<{ $div }>,
+            reciprocal_of_u64_div<{ $div }>,
             strength_reduce_u64_div<{ $div }>,
             fast_divide_u64_div<{ $div }>,
         );

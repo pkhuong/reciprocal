@@ -131,10 +131,53 @@ impl PartialReciprocal {
 
     /// Computes `x / d`, where `d` is the divison for which this
     /// reciprocal was constructed.
+    ///
+    /// The library tries to dispatch to a reasonable implementation
+    /// for each platform.
     #[inline]
     #[must_use]
+    #[cfg(target_arch = "x86_64")]
     pub fn apply(self, x: u64) -> u64 {
+        self.apply_overflowing(x)
+    }
+
+    /// Computes `x / d`, where `d` is the divison for which this
+    /// reciprocal was constructed.
+    ///
+    /// The library tries to dispatch to a reasonable implementation
+    /// for each platform.
+    #[inline]
+    #[must_use]
+    #[cfg(not(target_arch = "x86_64"))]
+    pub fn apply(self, x: u64) -> u64 {
+        self.apply_saturating(x)
+    }
+
+    /// Computes `x / d` with saturating arithmetic.
+    #[inline]
+    #[must_use]
+    pub fn apply_saturating(self, x: u64) -> u64 {
         let shifted = x.saturating_add(self.increment as u64);
+        let hi = ((self.multiplier as u128 * shifted as u128) >> 64) as u64;
+
+        hi >> self.shift
+    }
+
+    /// Computes `x / d` with an alternative saturating increment that
+    /// is shorter and equally efficient on x86-64.
+    #[inline]
+    #[must_use]
+    pub fn apply_overflowing(self, x: u64) -> u64 {
+        // Manually implement a saturating increment: we know
+        // `increment` is only 0 or 1, so we can recover from any
+        // overflow by subtracting 1 from `shifted`.  We can then
+        // expect LLVM to implement that as a subtract-with-borrow on
+        // x86-64.
+        let (mut shifted, overflow) = x.overflowing_add(self.increment as u64);
+        if overflow {
+            shifted = shifted.wrapping_sub(1);
+        }
+
         let hi = ((self.multiplier as u128 * shifted as u128) >> 64) as u64;
 
         hi >> self.shift
@@ -249,7 +292,8 @@ mod tests {
         let probe = |x: u64| {
             let expected = x / d;
             if let Some(p) = partial {
-                assert_eq!(p.apply(x), expected, "d={}, x={}", d, x);
+                assert_eq!(p.apply_saturating(x), expected, "d={}, x={}", d, x);
+                assert_eq!(p.apply_overflowing(x), expected, "d={}, x={}", d, x);
             }
 
             if let Some(r) = recip {
