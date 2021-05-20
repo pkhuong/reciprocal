@@ -1,23 +1,3 @@
-#![cfg_attr(feature = "nightly", feature(core_intrinsics), feature(asm))]
-
-#[cfg(feature = "nightly")]
-use core::intrinsics::unlikely;
-
-#[cfg(not(feature = "nightly"))]
-#[inline(always)]
-fn unlikely(x: bool) -> bool {
-    x
-}
-
-#[cfg(feature = "nightly")]
-#[inline(always)]
-fn opaque_identity(mut x: u64) -> u64 {
-    unsafe {
-        asm!("/* {0} */", inout(reg) x, options(nomem, nostack, pure));
-    }
-    x
-}
-
 /// A `PartialReciprocal` represents an integer (floored) division
 /// by a `u64` that's not 0, 1 or u64::MAX.
 ///
@@ -35,12 +15,18 @@ pub struct PartialReciprocal {
 }
 
 /// A `Reciprocal` represents an integer division by any non-zero
-/// `u64`.  It consists of a regular `PartialReciprocal`, and a
-/// hardcoded result for `u64::MAX / d`.
+/// `u64`.  It replaces `PartialReciprocal`'s expression,
+///   `f(x) = (x + increment) * multiplier >> (64 + shift)`, where
+/// the inner addition is a saturating add by 0 or 1, with
+///   `g(x) = (x * multiplier + summand) >> (64 + shift)`, where
+/// both the multiplication and additions are in full 128 bit
+/// arithmetic.  This additional work lets us handle all the cases,
+/// including divisions by 1 and by `u64::MAX`.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Reciprocal {
-    u64_max_result: u64,
-    base: PartialReciprocal,
+    multiplier: u64,
+    summand: u64, // Always 0 (round up) or `multiplier` (round down)
+    shift: u8,
 }
 
 impl PartialReciprocal {
@@ -193,11 +179,11 @@ impl Reciprocal {
             return None;
         }
 
-        let u64_max_result = u64::MAX / d;
         if let Some(base) = PartialReciprocal::new(d) {
             return Some(Reciprocal {
-                u64_max_result,
-                base,
+                multiplier: base.multiplier,
+                summand: base.multiplier * base.increment as u64,
+                shift: base.shift,
             });
         }
 
@@ -211,24 +197,18 @@ impl Reciprocal {
             // We can spoof the identity by adding 1 and scaling
             // by u64::MAX / 2**64.
             return Some(Reciprocal {
-                u64_max_result,
-                base: PartialReciprocal {
-                    multiplier: u64::MAX,
-                    shift: 0,
-                    increment: 1,
-                },
+                multiplier: u64::MAX,
+                summand: u64::MAX,
+                shift: 0,
             });
         }
 
         // And we can fake a division by u64::MAX with
         // a multiplication by zero.
         Some(Reciprocal {
-            u64_max_result,
-            base: PartialReciprocal {
-                multiplier: 0,
-                shift: 0,
-                increment: 1,
-            },
+            multiplier: 1,
+            summand: 1,
+            shift: 0,
         })
     }
 
@@ -237,47 +217,10 @@ impl Reciprocal {
     #[inline]
     #[must_use]
     pub fn apply(&self, x: u64) -> u64 {
-        let (shifted, wrapped) = x.overflowing_add(self.base.increment as u64);
+        let mut product = x as u128 * self.multiplier as u128;
+        product += self.summand as u128;
 
-        if unlikely(wrapped) {
-            // `self.base.increment <= 1`, so the addition can only
-            // wrap if `x == u64::MAX`, and we already have the result
-            // for that division.
-            return self.u64_max_result;
-        }
-
-        let hi = ((self.base.multiplier as u128 * shifted as u128) >> 64) as u64;
-        hi >> self.base.shift
-    }
-
-    #[cfg(feature = "nightly")]
-    #[inline]
-    #[must_use]
-    pub fn apply_branchfree(&self, x: u64) -> u64 {
-        let mut fixup = opaque_identity(self.u64_max_result);
-        let (shifted, wrapped) = x.overflowing_add(self.base.increment as u64);
-
-        // Combined with the opaque_identity above to force the eager
-        // loading of `fixup = self.u64_max_result` in a register,
-        // this seems to reliably convince llvm to emit a cmov.
-        //
-        // It would be nice to shave one instruction and have a
-        // fused `cmovcc reg, mem`, but llvm is very reluctant to
-        // unconditionalise memory loads, at least on x86-64.
-        //
-        // This branch-free formulation is equivalent to the branchy
-        // `apply`.  When the addition doesn't wrap, fixup is 0, and
-        // this function is equivalent to `apply`.  When the addition
-        // does wrap, `self.base.increment` must be 1 (it's always 0
-        // or 1), and so `x == u64::MAX`, and `shifted == 0`.  This
-        // leads to `hi == 0`, and adding `fixup == self.u64_max_result`
-        // to 0 yields `self.u64_max_result`.
-        if !wrapped {
-            fixup = 0;
-        }
-
-        let hi = ((self.base.multiplier as u128 * shifted as u128) >> 64) as u64;
-        (hi >> self.base.shift) + fixup
+        (product >> 64) as u64 >> self.shift
     }
 }
 
