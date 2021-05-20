@@ -41,7 +41,7 @@ fn hardware_u64_div(c: &mut Criterion) {
     });
 }
 
-fn reciprocal_u64_div(c: &mut Criterion) {
+fn partial_u64_div(c: &mut Criterion) {
     use reciprocal::PartialReciprocal;
 
     let inputs: Vec<u64> = (0..ITER).map(generate).collect();
@@ -50,6 +50,31 @@ fn reciprocal_u64_div(c: &mut Criterion) {
         .map(|i| PartialReciprocal::new(*i).unwrap())
         .collect();
     let divisors: Vec<&PartialReciprocal> = generate_div_indices(ITER)
+        .iter()
+        .map(|i| &reciprocals[*i])
+        .collect();
+
+    c.bench_function("partial_u64_div", move |b| {
+        b.iter(|| {
+            let mut sum = 0;
+            for (i, div) in black_box(&inputs).iter().zip(black_box(&divisors)) {
+                sum += div.apply(*i);
+            }
+
+            black_box(sum)
+        })
+    });
+}
+
+fn reciprocal_u64_div(c: &mut Criterion) {
+    use reciprocal::Reciprocal;
+
+    let inputs: Vec<u64> = (0..ITER).map(generate).collect();
+    let reciprocals: Vec<_> = DIVISORS
+        .iter()
+        .map(|i| Reciprocal::new(*i).unwrap())
+        .collect();
+    let divisors: Vec<&Reciprocal> = generate_div_indices(ITER)
         .iter()
         .map(|i| &reciprocals[*i])
         .collect();
@@ -116,6 +141,7 @@ fn fast_divide_u64_div(c: &mut Criterion) {
 criterion_group!(
     u64_div_variable,
     hardware_u64_div,
+    partial_u64_div,
     reciprocal_u64_div,
     strength_reduce_u64_div,
     fast_divide_u64_div
