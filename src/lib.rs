@@ -258,9 +258,6 @@ mod tests {
 
             if let Some(r) = recip {
                 assert_eq!(r.apply(x), expected, "d={}, x={}", d, x);
-
-                #[cfg(feature = "nightly")]
-                assert_eq!(r.apply_branchfree(x), expected, "d={}, x={}", d, x);
             }
         };
 
