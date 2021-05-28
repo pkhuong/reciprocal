@@ -14,5 +14,6 @@ The basic `PartialReciprocal` should be compiled to a constant-time
 fast path, and can handle every divisor except 0, 1, and `u64::MAX`.
 
 The slightly more complex `Reciprocal` can also divide by 1 and
-`u64::MAX`, at the expense of one branch in the fast path: we must
-treat divisions *of* `u64::MAX` specially.
+`u64::MAX`, at the expense of one more `u64` field, and a slightly
+more complex (one more load, maybe one more integer arithmetic
+instruction) fast path.

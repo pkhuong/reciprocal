@@ -187,15 +187,29 @@ impl Reciprocal {
             });
         }
 
-        // The two special cases below set `base` correctly for any `x
-        // < u64::MAX`, and all set `increment = 1`.
-        //
+        // The two special cases below work in 64.64 fixed point.
+        // While they have the usual `summand = multiplier` structure,
+        // their results differ when dividing u64::MAX and (u64::MAX -
+        // 1).  That's why we can't use the same constants for the
+        // `PartialReciprocal` sequence, which
+        // pre-saturating-increments the dividend, instead of actually
+        // adding the summand to the intermediate 128-bit product.
+
         // We can thus determine whether to use `u64_max_result` by
         // checking if the increment overflows.
         assert!(d == 1 || d == u64::MAX);
         if d == 1 {
-            // We can spoof the identity by adding 1 and scaling
-            // by u64::MAX / 2**64.
+            // We want to divide by 1, i.e., multiply by 1.
+            //
+            // We can fake it by scaling by by u64::MAX / 2**64 (1 -
+            // 2**-64), and adding (1 - 2**-64) again.
+            //
+            // It would even be correct to add 1 (x * u64::MAX / 2**64
+            // truncates to x - 1 for all u64 values), but that
+            // doesn't fit our pattern... and adding (1 - 2**-64)
+            // suffices to compensate even the worst-case
+            // approximation error (max x * [1 - (1 - 2**-64)]
+            // = max x / 2**64 = u64::MAX / 2**-64).
             return Some(Reciprocal {
                 multiplier: u64::MAX,
                 summand: u64::MAX,
@@ -203,8 +217,11 @@ impl Reciprocal {
             });
         }
 
-        // And we can fake a division by u64::MAX with
-        // a multiplication by zero.
+        // And we can fake a division by u64::MAX with a
+        // multiplication by 2**-64, followed by adding 2**-64 again..
+        //
+        // For any value less than u64::MAX, the result is less than
+        // 1, so truncates to 0.  For u64::MAX, we get exactly 1.
         Some(Reciprocal {
             multiplier: 1,
             summand: 1,
