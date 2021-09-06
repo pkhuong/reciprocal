@@ -1,5 +1,6 @@
 Baseline implementation of division by constants
 ================================================
+[![Build Status](https://app.travis-ci.com/pkhuong/reciprocal.svg?branch=main)](https://app.travis-ci.com/pkhuong/reciprocal) [![Coverage Status](https://coveralls.io/repos/github/pkhuong/reciprocal/badge.svg?branch=main)](https://coveralls.io/github/pkhuong/reciprocal?branch=main)
 
 When dividing integers by compile-time constants, compilers (LLVM) can
 be trusted to convert those to a sequence of multiplication and shift.
